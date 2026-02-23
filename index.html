@@ -2,75 +2,91 @@
 <html lang="ms">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Olahraga SJKC KEE TEE (Mobile Optimized)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sistem Olahraga SJKC KEE TEE</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; }
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        
+        /* 状态颜色 */
         .achieved { background-color: #dcfce7 !important; border: 2px solid #22c55e !important; color: #15803d !important; font-weight: bold; }
         .pending { background-color: #fef2f2 !important; border: 1px solid #fca5a5 !important; }
         .btn-hadir { background-color: #10b981 !important; color: white !important; font-weight: 900; }
-        .progress-bar { height: 8px; border-radius: 4px; background: #e2e8f0; overflow: hidden; }
+        
+        /* 顶部收缩动画 */
+        header { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .header-shrink { padding-top: 0.4rem !important; padding-bottom: 0.4rem !important; }
+        .header-shrink h1 { font-size: 1.1rem !important; }
+        .header-shrink #subTitle, .header-shrink #syncStatus { display: none; }
+        .header-shrink #btnGroup { margin-top: 0 !important; }
+        
+        /* 进度条 */
+        .progress-bar { height: 6px; border-radius: 3px; background: #e2e8f0; overflow: hidden; }
         .progress-fill { height: 100%; background: #3b82f6; transition: width 0.5s ease; }
-        .tab-btn.active { border-bottom: 4px solid #f59e0b; color: #f59e0b; }
+        .tab-btn.active { border-bottom: 4px solid #f59e0b; color: #f59e0b; font-weight: 900; }
+        
+        /* 输入框优化 */
+        input[type="number"] { font-size: 16px !important; } /* 防止iOS缩放 */
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen flex flex-col w-full overflow-x-hidden">
+<body class="bg-slate-50 min-h-screen flex flex-col w-full overflow-x-hidden text-slate-900">
 
-<div class="bg-indigo-950 text-white p-6 sticky top-0 z-50 shadow-xl w-full border-b-4 border-yellow-500">
-    <div class="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-        <div>
-            <div class="flex items-center gap-2">
-                <h1 class="text-2xl md:text-3xl font-black tracking-tight text-yellow-400">启智学校田径记录系统</h1>
-                <div id="syncStatus" class="flex items-center gap-1 bg-white/10 px-2 py-1 rounded text-[10px] font-bold">
+<header id="mainHeader" class="bg-indigo-950 text-white p-4 md:p-6 sticky top-0 z-50 shadow-xl w-full border-b-4 border-yellow-500">
+    <div class="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-center gap-2 md:gap-6">
+        <div class="text-center md:text-left">
+            <div class="flex items-center justify-center md:justify-start gap-2">
+                <h1 class="text-xl md:text-3xl font-black tracking-tight text-yellow-400">启智学校田径记录</h1>
+                <div id="syncStatus" class="flex items-center gap-1 bg-white/10 px-2 py-0.5 rounded text-[9px] font-bold">
                     <span id="syncDot" class="w-2 h-2 rounded-full bg-green-500"></span>
-                    <span id="syncText">云端已同步</span>
+                    <span id="syncText">Cloud Ready</span>
                 </div>
             </div>
-            <p class="text-xs md:text-sm font-bold opacity-90 uppercase tracking-[0.2em]">OLAHRAGA SJKC KEE TEE</p>
+            <p id="subTitle" class="text-[9px] font-bold opacity-60 uppercase tracking-widest hidden md:block">SJKC KEE TEE SPORTS SYSTEM</p>
         </div>
-        <div class="flex flex-wrap justify-center gap-3">
-            <button onclick="showDistribution()" class="bg-blue-600 text-white px-5 py-3 rounded-2xl text-xs font-black shadow-lg">📋 PENGAGIHAN</button>
-            <button onclick="toggleDashboard()" class="bg-yellow-500 text-indigo-950 px-5 py-3 rounded-2xl text-xs font-black shadow-lg">📊 DATA</button>
-            <button onclick="exportToExcel()" class="bg-emerald-600 text-white px-5 py-3 rounded-2xl text-xs font-black shadow-lg">📥 EXCEL</button>
+        
+        <div id="btnGroup" class="flex flex-wrap justify-center gap-2 mt-2 md:mt-0">
+            <button onclick="showDistribution()" class="bg-blue-600 text-white px-3 py-2 rounded-xl text-[10px] font-black">📋 PENGAGIHAN</button>
+            <button onclick="toggleDashboard()" class="bg-yellow-500 text-indigo-950 px-3 py-2 rounded-xl text-[10px] font-black">📊 DATA</button>
+            <button onclick="exportToExcel()" class="bg-emerald-600 text-white px-3 py-2 rounded-xl text-[10px] font-black">📥 EXCEL</button>
         </div>
     </div>
-    <div class="max-w-[1600px] mx-auto mt-6">
-        <select id="sessionSelector" onchange="syncSession()" class="w-full bg-indigo-900 border border-indigo-700 rounded-2xl p-4 text-sm text-white font-bold outline-none cursor-pointer"></select>
+    
+    <div class="max-w-[1600px] mx-auto mt-3">
+        <select id="sessionSelector" onchange="syncSession()" class="w-full bg-indigo-900 border border-indigo-700 rounded-xl p-3 text-xs text-white font-bold outline-none shadow-inner"></select>
     </div>
-</div>
+</header>
 
-<main class="flex-1 w-full max-w-[1600px] mx-auto p-6">
-    <div id="studentList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6"></div>
+<main class="flex-1 w-full max-w-[1600px] mx-auto p-4">
+    <div id="studentList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4"></div>
 </main>
 
-<div id="dashboardModal" class="fixed inset-0 bg-slate-900/95 z-[300] hidden backdrop-blur-xl p-4 overflow-y-auto">
-    <div class="bg-white rounded-[3rem] w-full max-w-7xl mx-auto shadow-2xl overflow-hidden min-h-[80vh]">
-        <div class="flex border-b bg-slate-50 px-8 pt-6 gap-8 sticky top-0 z-10">
-            <button onclick="switchTab('attendance')" id="tab-att" class="tab-btn active pb-4 text-sm font-black uppercase text-slate-400">Kehadiran (出席)</button>
-            <button onclick="switchTab('performance')" id="tab-perf" class="tab-btn pb-4 text-sm font-black uppercase text-slate-400">Prestasi (进度)</button>
+<div id="dashboardModal" class="fixed inset-0 bg-slate-900/95 z-[300] hidden backdrop-blur-xl p-2 md:p-4 overflow-y-auto">
+    <div class="bg-white rounded-[2rem] md:rounded-[3rem] w-full max-w-7xl mx-auto shadow-2xl overflow-hidden min-h-[90vh]">
+        <div class="flex border-b bg-slate-50 px-6 pt-6 gap-6 sticky top-0 z-10">
+            <button onclick="switchTab('attendance')" id="tab-att" class="tab-btn active pb-4 text-[10px] md:text-xs font-black uppercase text-slate-400">Kehadiran</button>
+            <button onclick="switchTab('performance')" id="tab-perf" class="tab-btn pb-4 text-[10px] md:text-xs font-black uppercase text-slate-400">Prestasi</button>
             <button onclick="toggleDashboard()" class="ml-auto text-slate-400 hover:text-red-500 font-bold text-2xl mb-4">&times;</button>
         </div>
-        <div id="dashboardContent" class="p-8"></div>
+        <div id="dashboardContent" class="p-4 md:p-8"></div>
     </div>
 </div>
 
-<div id="distModal" class="fixed inset-0 bg-slate-900/90 z-[200] hidden backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-white rounded-[3rem] w-full max-w-5xl shadow-2xl overflow-hidden">
-        <div class="p-6 bg-blue-600 text-white flex justify-between items-center font-black uppercase text-sm tracking-widest">
-            <span>Senarai Pengagihan Atlet</span><button onclick="closeDist()" class="text-3xl">&times;</button>
+<div id="distModal" class="fixed inset-0 bg-slate-900/90 z-[200] hidden backdrop-blur-md flex items-center justify-center p-2">
+    <div class="bg-white rounded-[2rem] w-full max-w-5xl shadow-2xl overflow-hidden max-h-[95vh] flex flex-col">
+        <div class="p-5 bg-blue-600 text-white flex justify-between items-center font-black uppercase text-xs tracking-widest">
+            <span>Senarai Pengagihan</span><button onclick="closeDist()" class="text-2xl">&times;</button>
         </div>
-        <div id="distContent" class="p-8 max-h-[75vh] overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50"></div>
+        <div id="distContent" class="p-4 md:p-8 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50"></div>
     </div>
 </div>
 
 <script>
-// ==================== 重要：请填入您的 URL ====================
-const CLOUD_URL = '你的WEB_APP_URL粘贴在这里'; 
-// =============================================================
+// ==================== 1. 配置云端 URL ====================
+const CLOUD_URL = 'https://script.google.com/macros/s/AKfycbw2UHJYkxgWk01M6P3GDjlZjH3cvc6vuTeS_lntdUxWun3kdYEbAV3D8yrLVJ2hU99l/exec'; 
 
+// ==================== 2. 基础数据 ====================
 const ACARA_LABELS = { run: "LUMBA LARI", high: "LOMPAT TINGGI", long: "LOMPAT JAUH", shot: "LONTAR PELURU" };
 const SCHEDULE = [
     { d: "24/2/26 Selasa", m: "2-4pm", a: ["high", "long"] },
@@ -122,6 +138,18 @@ let records = JSON.parse(localStorage.getItem('keetee_sports_v2')) || {};
 let currentTab = 'attendance';
 let saveTimer;
 
+// ==================== 3. 核心功能函数 ====================
+
+// 滚动隐藏导航栏
+window.onscroll = function() {
+    const header = document.getElementById("mainHeader");
+    if (document.body.scrollTop > 50 || document.documentElement.scrollTop > 50) {
+        header.classList.add("header-shrink");
+    } else {
+        header.classList.remove("header-shrink");
+    }
+};
+
 async function loadCloudData() {
     updateSyncUI('loading');
     try {
@@ -133,9 +161,7 @@ async function loadCloudData() {
             renderList();
             updateSyncUI('success');
         }
-    } catch (e) {
-        updateSyncUI('error');
-    }
+    } catch (e) { updateSyncUI('error'); }
 }
 
 async function saveToCloud() {
@@ -148,9 +174,7 @@ async function saveToCloud() {
             body: JSON.stringify(records)
         });
         updateSyncUI('success');
-    } catch (e) {
-        updateSyncUI('error');
-    }
+    } catch (e) { updateSyncUI('error'); }
 }
 
 function updateSyncUI(status) {
@@ -182,6 +206,8 @@ function init() {
     loadCloudData();
 }
 
+function syncSession() { renderList(); window.scrollTo({top: 0, behavior: 'smooth'}); }
+
 function renderList() {
     const s = SCHEDULE[document.getElementById('sessionSelector').value];
     const container = document.getElementById('studentList');
@@ -191,19 +217,19 @@ function renderList() {
         if(!records[std.n]) records[std.n] = { daily: {}, best: {} };
         const isHadir = records[std.n].daily[s.d]?.attend || false;
         const card = document.createElement('div');
-        card.className = "bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200";
+        card.className = "bg-white p-5 rounded-[1.5rem] shadow-sm border border-slate-200";
         let inputs = '';
         s.a.filter(ev => std.events.includes(ev)).forEach(ev => {
             const val = records[std.n].daily[s.d]?.[ev] || "";
             const target = (GOALS[std.t] || GOALS["TAHUN 4"])[ev];
             const ok = val !== "" && (ev === 'run' ? val <= target : val >= target);
-            inputs += `<div class="mt-4"><p class="text-[10px] font-black text-slate-400 uppercase">${ACARA_LABELS[ev]}</p>
+            inputs += `<div class="mt-3"><p class="text-[9px] font-black text-slate-400 uppercase">${ACARA_LABELS[ev]}</p>
                 <input type="number" step="0.01" inputmode="decimal" value="${val}" 
                 oninput="updateData('${std.n}','${s.d}','${ev}',this.value, event)" 
-                class="w-full rounded-2xl p-4 text-sm font-black outline-none border ${val===''?'bg-slate-50':(ok?'achieved':'pending')}" placeholder="0.00"></div>`;
+                class="w-full rounded-xl p-3 text-sm font-black outline-none border transition-all ${val===''?'bg-slate-50':(ok?'achieved':'pending')}" placeholder="0.00"></div>`;
         });
-        card.innerHTML = `<div class="flex justify-between items-start border-b pb-4"><div><h3 class="font-black text-slate-900 text-sm uppercase">${std.n}</h3><p class="text-[9px] text-indigo-500 font-bold">${std.t}</p></div>
-            <button onclick="markAttend('${std.n}','${s.d}')" class="text-[9px] border px-3 py-2 rounded-xl font-black uppercase ${isHadir?'btn-hadir':'bg-white text-slate-400'}">${isHadir?'Hadir':'Tidak'}</button></div><div>${inputs}</div>`;
+        card.innerHTML = `<div class="flex justify-between items-start border-b pb-3"><div><h3 class="font-black text-slate-900 text-[13px] uppercase leading-tight">${std.n}</h3><p class="text-[8px] text-indigo-500 font-bold mt-1">${std.t}</p></div>
+            <button onclick="markAttend('${std.n}','${s.d}')" class="text-[8px] border px-3 py-2 rounded-lg font-black uppercase ${isHadir?'btn-hadir':'bg-white text-slate-400'}">${isHadir?'Hadir':'Tidak'}</button></div><div>${inputs}</div>`;
         container.appendChild(card);
     });
 }
@@ -218,7 +244,6 @@ function updateData(n, d, ev, v, event) {
     let all = Object.values(records[n].daily).map(day => day[ev]).filter(val => val !== undefined && val !== "" && !isNaN(val));
     if(all.length > 0) records[n].best[ev] = (ev === 'run' ? Math.min(...all) : Math.max(...all));
     
-    // UI即时反馈颜色
     const inputField = event.target;
     const target = (GOALS[STUDENTS.find(s=>s.n===n).t] || GOALS["TAHUN 4"])[ev];
     const ok = numValue !== "" && (ev === 'run' ? numValue <= target : numValue >= target);
@@ -235,6 +260,8 @@ function markAttend(n, d) {
     records[n].daily[d].attend = !records[n].daily[d].attend;
     saveToCloud(); renderList();
 }
+
+// ==================== 4. 数据统计逻辑 ====================
 
 function toggleDashboard() {
     const m = document.getElementById('dashboardModal');
@@ -256,18 +283,18 @@ function refreshDashboard() {
                 if(!day.a.some(a => s.events.includes(a))) return `<td class="p-2 text-center text-slate-200">-</td>`;
                 return `<td class="p-2 text-center border-x">${records[s.n]?.daily?.[day.d]?.attend ? '✅' : '❌'}</td>`;
             }).join('');
-            return `<tr class="border-b text-xs"><td class="p-3 font-black uppercase sticky left-0 bg-white shadow-sm">${s.n}</td>${cells}</tr>`;
+            return `<tr class="border-b text-[10px]"><td class="p-3 font-black uppercase sticky left-0 bg-white shadow-sm z-10">${s.n}</td>${cells}</tr>`;
         }).join('');
-        content.innerHTML = `<div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead><tr class="bg-slate-100 text-[10px]"><th class="p-3 sticky left-0 bg-slate-100">Nama</th>${SCHEDULE.map(d=>`<th class="p-2 text-center border-x">${d.d.split(' ')[0]}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+        content.innerHTML = `<div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead><tr class="bg-slate-100 text-[8px] uppercase tracking-tighter"><th class="p-3 sticky left-0 bg-slate-100 z-20">Nama</th>${SCHEDULE.map(d=>`<th class="p-1 text-center border-x">${d.d.split(' ')[0]}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
     } else {
         let rows = STUDENTS.map(s => {
             let perfs = s.events.map(ev => {
                 const b = records[s.n]?.best?.[ev] || 0, g = (GOALS[s.t] || GOALS["TAHUN 4"])[ev], ok = b>0 && (ev==='run'?b<=g:b>=g);
-                return `<div class="mb-3 bg-slate-50 p-3 rounded-xl border"><div class="flex justify-between text-[10px] font-black uppercase"><span>${ACARA_LABELS[ev]}</span><span class="${ok?'text-green-600':'text-red-500'}">Gap: ${b>0?(b-g).toFixed(2):'--'}</span></div><div class="progress-bar mt-1"><div class="progress-fill" style="width: ${b>0?(ev==='run'?Math.min(100,(g/b)*100):Math.min(100,(b/g)*100)):0}%"></div></div><div class="flex justify-between text-[8px] mt-1 opacity-50 font-bold"><span>BEST: ${b||'--'}</span><span>GOAL: ${g}</span></div></div>`;
+                return `<div class="mb-3 bg-slate-50 p-3 rounded-xl border"><div class="flex justify-between text-[9px] font-black uppercase"><span>${ACARA_LABELS[ev]}</span><span class="${ok?'text-green-600':'text-red-500'}">Gap: ${b>0?(b-g).toFixed(2):'--'}</span></div><div class="progress-bar mt-1"><div class="progress-fill" style="width: ${b>0?(ev==='run'?Math.min(100,(g/b)*100):Math.min(100,(b/g)*100)):0}%"></div></div><div class="flex justify-between text-[8px] mt-1 opacity-50 font-bold"><span>BEST: ${b||'--'}</span><span>GOAL: ${g}</span></div></div>`;
             }).join('');
-            return `<tr class="border-b"><td class="p-3 font-black text-xs">${s.n}<p class="text-[9px] text-blue-500">${s.t}</p></td><td class="p-3">${perfs}</td></tr>`;
+            return `<tr class="border-b"><td class="p-3 font-black text-xs w-1/3">${s.n}<p class="text-[8px] text-blue-500 font-normal">${s.t}</p></td><td class="p-3 w-2/3">${perfs}</td></tr>`;
         }).join('');
-        content.innerHTML = `<table class="w-full text-left"><thead><tr class="text-[10px] uppercase text-slate-400"><th>Atlet</th><th>Analisis</th></tr></thead><tbody>${rows}</tbody></table>`;
+        content.innerHTML = `<table class="w-full text-left"><thead><tr class="text-[10px] uppercase text-slate-400 border-b"><th class="p-2">Atlet</th><th class="p-2 text-right">Analisis Prestasi</th></tr></thead><tbody>${rows}</tbody></table>`;
     }
 }
 
@@ -285,7 +312,7 @@ function exportToExcel() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryData), "Prestasi");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(attendanceData), "Kehadiran");
-    XLSX.writeFile(wb, "Rekod_Olahraga_SJKC_KEE_TEE.xlsx");
+    XLSX.writeFile(wb, "Rekod_Olahraga_KeeTee.xlsx");
 }
 
 function showDistribution() {
@@ -303,10 +330,10 @@ function showDistribution() {
                 else sf.push(std.n);
             }
         });
-        const formatList = (names) => names.length === 0 ? '<div class="text-slate-300 italic">-</div>' : names.map((n, i) => `<div class="flex items-center gap-2 py-1 border-b border-white/50 last:border-0"><span class="w-5 h-5 flex items-center justify-center bg-white/50 rounded text-[9px] font-black text-blue-800">${i+1}</span><span class="truncate">${n}</span></div>`).join('');
+        const formatList = (names) => names.length === 0 ? '<div class="text-slate-300 italic text-[10px]">-</div>' : names.map((n, i) => `<div class="flex items-center gap-2 py-1 border-b border-white/50 last:border-0"><span class="w-4 h-4 flex items-center justify-center bg-white/50 rounded text-[8px] font-black text-blue-800">${i+1}</span><span class="truncate text-[10px]">${n}</span></div>`).join('');
         const box = document.createElement('div');
-        box.className = "bg-white rounded-3xl p-6 shadow-sm border-t-8 border-blue-500 flex flex-col gap-4";
-        box.innerHTML = `<h4 class="font-black text-blue-900 text-lg uppercase">${ACARA_LABELS[acaraKey]}</h4><div class="space-y-4"><div class="bg-blue-50/80 p-4 rounded-2xl"><p class="text-[10px] font-black text-blue-600 mb-2 border-b border-blue-200 pb-1 uppercase">Sesi 1</p><div class="text-[11px] font-bold text-slate-700 space-y-1">${formatList(s1)}</div></div><div class="bg-indigo-50/80 p-4 rounded-2xl"><p class="text-[10px] font-black text-indigo-600 mb-2 border-b border-indigo-200 pb-1 uppercase">Sesi 2</p><div class="text-[11px] font-bold text-slate-700 space-y-1">${formatList(s2)}</div></div><div class="bg-slate-100/80 p-4 rounded-2xl"><p class="text-[10px] font-black text-slate-500 mb-2 border-b border-slate-300 pb-1 uppercase">Sesi Penuh</p><div class="text-[11px] font-bold text-slate-700 space-y-1">${formatList(sf)}</div></div></div>`;
+        box.className = "bg-white rounded-2xl p-5 shadow-sm border-t-4 border-blue-500 flex flex-col gap-3";
+        box.innerHTML = `<h4 class="font-black text-blue-900 text-sm uppercase">${ACARA_LABELS[acaraKey]}</h4><div class="space-y-3"><div class="bg-blue-50/80 p-3 rounded-xl"><p class="text-[8px] font-black text-blue-600 mb-1 border-b border-blue-100 pb-1 uppercase tracking-tighter">Sesi 1</p>${formatList(s1)}</div><div class="bg-indigo-50/80 p-3 rounded-xl"><p class="text-[8px] font-black text-indigo-600 mb-1 border-b border-indigo-100 pb-1 uppercase tracking-tighter">Sesi 2</p>${formatList(s2)}</div><div class="bg-slate-100/80 p-3 rounded-xl"><p class="text-[8px] font-black text-slate-500 mb-1 border-b border-slate-200 pb-1 uppercase tracking-tighter">Sesi Penuh</p>${formatList(sf)}</div></div>`;
         content.appendChild(box);
     });
 }
