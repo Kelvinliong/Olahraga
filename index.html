@@ -9,20 +9,16 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
-        
         .achieved { background-color: #dcfce7 !important; border: 2px solid #22c55e !important; color: #15803d !important; font-weight: bold; }
         .pending { background-color: #fef2f2 !important; border: 1px solid #fca5a5 !important; }
         .btn-hadir { background-color: #10b981 !important; color: white !important; font-weight: 900; }
-        
         header { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .header-shrink { padding-top: 0.4rem !important; padding-bottom: 0.4rem !important; }
         .header-shrink h1 { font-size: 1.1rem !important; }
         .header-shrink #subTitle, .header-shrink #syncStatus { display: none; }
-        
         .progress-bar { height: 6px; border-radius: 3px; background: #e2e8f0; overflow: hidden; }
         .progress-fill { height: 100%; background: #3b82f6; transition: width 0.5s ease; }
         .tab-btn.active { border-bottom: 4px solid #f59e0b; color: #f59e0b; font-weight: 900; }
-        
         input[type="number"] { font-size: 16px !important; }
     </style>
 </head>
@@ -40,14 +36,12 @@
             </div>
             <p id="subTitle" class="text-[9px] font-bold opacity-60 uppercase tracking-widest hidden md:block">SJKC KEE TEE SPORTS SYSTEM</p>
         </div>
-        
         <div id="btnGroup" class="flex flex-wrap justify-center gap-2 mt-2 md:mt-0">
             <button onclick="showDistribution()" class="bg-blue-600 text-white px-3 py-2 rounded-xl text-[10px] font-black">📋 PENGAGIHAN</button>
             <button onclick="toggleDashboard()" class="bg-yellow-500 text-indigo-950 px-3 py-2 rounded-xl text-[10px] font-black">📊 DATA</button>
             <button onclick="exportToExcel()" class="bg-emerald-600 text-white px-3 py-2 rounded-xl text-[10px] font-black">📥 EXCEL</button>
         </div>
     </div>
-    
     <div class="max-w-[1600px] mx-auto mt-3">
         <select id="sessionSelector" onchange="syncSession()" class="w-full bg-indigo-900 border border-indigo-700 rounded-xl p-3 text-xs text-white font-bold outline-none shadow-inner"></select>
     </div>
@@ -81,7 +75,7 @@
 // ==================== 1. 配置云端 URL ====================
 const CLOUD_URL = 'https://script.google.com/macros/s/AKfycbw2UHJYkxgWk01M6P3GDjlZjH3cvc6vuTeS_lntdUxWun3kdYEbAV3D8yrLVJ2hU99l/exec'; 
 
-// ==================== 2. 基础数据 ====================
+// ==================== 2. 基础数据 (已加入初始 Best 成绩) ====================
 const ACARA_LABELS = { run: "LUMBA LARI", high: "LOMPAT TINGGI", long: "LOMPAT JAUH", shot: "LONTAR PELURU" };
 const SCHEDULE = [
     { d: "24/2/26 Selasa", m: "2-4pm", a: ["high", "long"] },
@@ -101,30 +95,31 @@ const SCHEDULE = [
     { d: "1/4/26 Rabu", m: "2-4pm", a: ["high", "long", "shot"] }
 ];
 
+// 初始化名单，包含您提供的图片中的 Best 数据
 const STUDENTS = [
-    { n: "AIDEN LEE JUN YING", t: "TAHUN 6", events: ["long"] },
-    { n: "ANGELLYNE TIJAN LAH", t: "TAHUN 6", events: ["run", "high"] },
-    { n: "AURELIUS PHILEMON WAN AUGUST", t: "TAHUN 6", events: ["high", "long", "shot"] },
-    { n: "AYDEN JOSEPH SUSILAN SADASIVAN", t: "TAHUN 6", events: ["high", "long"] },
-    { n: "FANILY TIONG HUNG KIEW", t: "TAHUN 6", events: ["high"] },
-    { n: "LIEW JIA XUAN", t: "TAHUN 6", events: ["long"] },
-    { n: "MARK ARTHUR SAMSON", t: "TAHUN 6", events: ["high"] },
-    { n: "NGAN MEI TING", t: "TAHUN 6", events: ["run", "high", "long"] },
-    { n: "SUZANNE CHUPPU AK JUA", t: "TAHUN 6", events: ["long"] },
-    { n: "GOH WEN WEN", t: "TAHUN 5", events: ["run"] },
-    { n: "GWENDOLYNE ANNASTASHA", t: "TAHUN 5", events: ["run", "high", "long"] },
-    { n: "OLWENTYO SIM XIAO PING", t: "TAHUN 5", events: ["long"] },
-    { n: "RACHEL BOON CHAI", t: "TAHUN 5", events: ["run", "high", "long"] },
-    { n: "ADAM MIKHAIL SAMSON", t: "TAHUN 4", events: ["shot"] },
-    { n: "ANTHONY AJANG LAH", t: "TAHUN 4", events: ["run", "long"] },
-    { n: "CADENCE BULAN OLYMPIA", t: "TAHUN 4", events: ["run", "high", "long"] },
-    { n: "CASSIE SIM CHEN SHIEN", t: "TAHUN 4", events: ["run", "long"] },
-    { n: "GRAYSON ANAK ELIAM", t: "TAHUN 4", events: ["shot"] },
-    { n: "TIARA EMILEESYHA BINTI ABDULLAH", t: "TAHUN 4", events: ["run"] },
-    { n: "ADY LYTHU JIFLI", t: "TAHUN 3", events: ["high"] },
-    { n: "GOH KEE JUN", t: "TAHUN 3", events: ["high"] },
-    { n: "SCARLETT JACKSON CASSIDY", t: "TAHUN 3", events: ["long"] },
-    { n: "YUVENIA CHUMANG", t: "TAHUN 3", events: ["shot"] }
+    { n: "AIDEN LEE JUN YING", t: "TAHUN 6", events: ["long"], initBest: { long: 3.30 } },
+    { n: "ANGELLYNE TIJAN LAH", t: "TAHUN 6", events: ["run", "high"], initBest: { run: 24, high: 0.95 } },
+    { n: "AURELIUS PHILEMON WAN AUGUST", t: "TAHUN 6", events: ["high", "long", "shot"], initBest: { high: 1.0, long: 3.50, shot: 7.03 } },
+    { n: "AYDEN JOSEPH SUSILAN SADASIVAN", t: "TAHUN 6", events: ["high", "long"], initBest: { high: 1.05, long: 3.50 } },
+    { n: "FANILY TIONG HUNG KIEW", t: "TAHUN 6", events: ["high"], initBest: { high: 1.0 } },
+    { n: "LIEW JIA XUAN", t: "TAHUN 6", events: ["long"], initBest: { long: 3.35 } },
+    { n: "MARK ARTHUR SAMSON", t: "TAHUN 6", events: ["high"], initBest: { high: 1.0 } },
+    { n: "NGAN MEI TING", t: "TAHUN 6", events: ["run", "high", "long"], initBest: { run: 26, high: 1.0, long: 2.80 } },
+    { n: "SUZANNE CHUPPU AK JUA", t: "TAHUN 6", events: ["long"], initBest: { long: 3.28 } },
+    { n: "GOH WEN WEN", t: "TAHUN 5", events: ["run"], initBest: { run: 26 } },
+    { n: "GWENDOLYNE ANNASTASHA", t: "TAHUN 5", events: ["run", "high", "long"], initBest: { run: 24, high: 1.0, long: 2.60 } },
+    { n: "OLWENTYO SIM XIAO PING", t: "TAHUN 5", events: ["long"], initBest: { long: 2.84 } },
+    { n: "RACHEL BOON CHAI", t: "TAHUN 5", events: ["run", "high", "long"], initBest: { run: 26, high: 1.0, long: 1.59 } },
+    { n: "ADAM MIKHAIL SAMSON", t: "TAHUN 4", events: ["shot"], initBest: { shot: 6.20 } },
+    { n: "ANTHONY AJANG LAH", t: "TAHUN 4", events: ["run", "long"], initBest: { run: 25, long: 2.70 } },
+    { n: "CADENCE BULAN OLYMPIA", t: "TAHUN 4", events: ["run", "high", "long"], initBest: { run: 28, high: 0.9, long: 1.95 } },
+    { n: "CASSIE SIM CHEN SHIEN", t: "TAHUN 4", events: ["run", "long"], initBest: { run: 27, long: 1.65 } },
+    { n: "GRAYSON ANAK ELIAM", t: "TAHUN 4", events: ["shot"], initBest: { shot: 4.30 } },
+    { n: "TIARA EMILEESYHA BINTI ABDULLAH", t: "TAHUN 4", events: ["run"], initBest: { run: 28 } },
+    { n: "ADY LYTHU JIFLI", t: "TAHUN 3", events: ["high"], initBest: { high: 1.05 } },
+    { n: "GOH KEE JUN", t: "TAHUN 3", events: ["high"], initBest: { high: 0.95 } },
+    { n: "SCARLETT JACKSON CASSIDY", t: "TAHUN 3", events: ["long"], initBest: { long: 1.50 } },
+    { n: "YUVENIA CHUMANG", t: "TAHUN 3", events: ["shot"], initBest: { shot: 4.00 } }
 ];
 
 const GOALS = { "TAHUN 6": { run: 23, high: 1.20, long: 3.80, shot: 8.65 }, "TAHUN 5": { run: 23, high: 1.18, long: 3.60, shot: 7.00 }, "TAHUN 4": { run: 24, high: 1.12, long: 3.50, shot: 5.50 }, "TAHUN 3": { run: 24, high: 1.12, long: 3.50, shot: 5.50 } };
@@ -132,6 +127,15 @@ const GOALS = { "TAHUN 6": { run: 23, high: 1.20, long: 3.80, shot: 8.65 }, "TAH
 let records = JSON.parse(localStorage.getItem('keetee_sports_v2')) || {};
 let currentTab = 'attendance';
 let saveTimer;
+
+// 如果 records 是空的，则使用 initBest 初始化记录
+STUDENTS.forEach(s => {
+    if (!records[s.n]) {
+        records[s.n] = { daily: {}, best: s.initBest || {} };
+    } else if (!records[s.n].best || Object.keys(records[s.n].best).length === 0) {
+        records[s.n].best = s.initBest || {};
+    }
+});
 
 window.onscroll = function() {
     const header = document.getElementById("mainHeader");
@@ -206,7 +210,6 @@ function renderList() {
     container.innerHTML = '';
     const list = STUDENTS.filter(std => std.events.some(e => s.a.includes(e)));
     list.forEach(std => {
-        if(!records[std.n]) records[std.n] = { daily: {}, best: {} };
         const isHadir = records[std.n].daily[s.d]?.attend || false;
         const card = document.createElement('div');
         card.className = "bg-white p-5 rounded-[1.5rem] shadow-sm border border-slate-200";
@@ -231,8 +234,14 @@ function updateData(n, d, ev, v, event) {
     const numValue = v === "" ? "" : parseFloat(v);
     if(!records[n].daily[d]) records[n].daily[d] = { attend: true };
     records[n].daily[d][ev] = numValue;
-    let all = Object.values(records[n].daily).map(day => day[ev]).filter(val => val !== undefined && val !== "" && !isNaN(val));
-    if(all.length > 0) records[n].best[ev] = (ev === 'run' ? Math.min(...all) : Math.max(...all));
+    
+    // 计算新的 Best
+    let dayValues = Object.values(records[n].daily).map(day => day[ev]).filter(val => val !== undefined && val !== "" && !isNaN(val));
+    let initialBest = STUDENTS.find(s => s.n === n).initBest[ev];
+    if (initialBest !== undefined) dayValues.push(initialBest);
+    
+    if(dayValues.length > 0) records[n].best[ev] = (ev === 'run' ? Math.min(...dayValues) : Math.max(...dayValues));
+    
     const inputField = event.target;
     const target = (GOALS[STUDENTS.find(s=>s.n===n).t] || GOALS["TAHUN 4"])[ev];
     const ok = numValue !== "" && (ev === 'run' ? numValue <= target : numValue >= target);
@@ -276,7 +285,7 @@ function refreshDashboard() {
         let rows = STUDENTS.map(s => {
             let perfs = s.events.map(ev => {
                 const b = records[s.n]?.best?.[ev] || 0, g = (GOALS[s.t] || GOALS["TAHUN 4"])[ev], ok = b>0 && (ev==='run'?b<=g:b>=g);
-                const unit = ev === 'run' ? 's' : 'm'; // 添加单位
+                const unit = ev === 'run' ? 's' : 'm';
                 return `<div class="mb-3 bg-slate-50 p-3 rounded-xl border"><div class="flex justify-between text-[9px] font-black uppercase"><span>${ACARA_LABELS[ev]}</span><span class="${ok?'text-green-600':'text-red-500'}">Gap: ${b>0?(b-g).toFixed(2)+unit:'--'}</span></div><div class="progress-bar mt-1"><div class="progress-fill" style="width: ${b>0?(ev==='run'?Math.min(100,(g/b)*100):Math.min(100,(b/g)*100)):0}%"></div></div><div class="flex justify-between text-[8px] mt-1 opacity-50 font-bold"><span>BEST: ${b?b+unit:'--'}</span><span>GOAL: ${g+unit}</span></div></div>`;
             }).join('');
             return `<tr class="border-b"><td class="p-3 font-black text-xs w-1/3">${s.n}<p class="text-[8px] text-blue-500 font-normal">${s.t}</p></td><td class="p-3 w-2/3">${perfs}</td></tr>`;
