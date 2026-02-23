@@ -3,22 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Olahraga SJKC KEE TEE (Cloud Sync)</title>
+    <title>Sistem Olahraga SJKC KEE TEE (Mobile Optimized)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; }
-        .achieved { background-color: #dcfce7; border: 2px solid #22c55e; color: #15803d; font-weight: bold; }
-        .pending { background-color: #fef2f2; border: 1px solid #fca5a5; }
+        .achieved { background-color: #dcfce7 !important; border: 2px solid #22c55e !important; color: #15803d !important; font-weight: bold; }
+        .pending { background-color: #fef2f2 !important; border: 1px solid #fca5a5 !important; }
         .btn-hadir { background-color: #10b981 !important; color: white !important; font-weight: 900; }
         .progress-bar { height: 8px; border-radius: 4px; background: #e2e8f0; overflow: hidden; }
         .progress-fill { height: 100%; background: #3b82f6; transition: width 0.5s ease; }
         .tab-btn.active { border-bottom: 4px solid #f59e0b; color: #f59e0b; }
-        /* 云端加载动画 */
-        #syncLoader { transition: all 0.3s; }
-        .syncing { color: #f59e0b; animation: pulse 1s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen flex flex-col w-full overflow-x-hidden">
@@ -71,9 +67,9 @@
 </div>
 
 <script>
-// ==================== 云端配置 ====================
-const CLOUD_URL = 'https://script.google.com/macros/s/AKfycbw2UHJYkxgWk01M6P3GDjlZjH3cvc6vuTeS_lntdUxWun3kdYEbAV3D8yrLVJ2hU99l/exec'; // ⚠️ 请填入 Google Apps Script 的部署网址
-// =================================================
+// ==================== 重要：请填入您的 URL ====================
+const CLOUD_URL = '你的WEB_APP_URL粘贴在这里'; 
+// =============================================================
 
 const ACARA_LABELS = { run: "LUMBA LARI", high: "LOMPAT TINGGI", long: "LOMPAT JAUH", shot: "LONTAR PELURU" };
 const SCHEDULE = [
@@ -124,8 +120,8 @@ const GOALS = { "TAHUN 6": { run: 23, high: 1.20, long: 3.80, shot: 8.65 }, "TAH
 
 let records = JSON.parse(localStorage.getItem('keetee_sports_v2')) || {};
 let currentTab = 'attendance';
+let saveTimer;
 
-// 云端同步逻辑
 async function loadCloudData() {
     updateSyncUI('loading');
     try {
@@ -138,7 +134,6 @@ async function loadCloudData() {
             updateSyncUI('success');
         }
     } catch (e) {
-        console.error("Cloud error:", e);
         updateSyncUI('error');
     }
 }
@@ -149,7 +144,7 @@ async function saveToCloud() {
     try {
         await fetch(CLOUD_URL, {
             method: 'POST',
-            mode: 'no-cors', // 解决跨域限制
+            mode: 'no-cors',
             body: JSON.stringify(records)
         });
         updateSyncUI('success');
@@ -161,15 +156,18 @@ async function saveToCloud() {
 function updateSyncUI(status) {
     const dot = document.getElementById('syncDot');
     const text = document.getElementById('syncText');
-    if (status === 'loading' || status === 'saving') {
+    if (status === 'saving_local') {
+        dot.className = "w-2 h-2 rounded-full bg-blue-400";
+        text.innerText = "Typing...";
+    } else if (status === 'loading' || status === 'saving') {
         dot.className = "w-2 h-2 rounded-full bg-yellow-500 animate-pulse";
-        text.innerText = "Synchronizing...";
+        text.innerText = "Syncing...";
     } else if (status === 'success') {
         dot.className = "w-2 h-2 rounded-full bg-green-500";
         text.innerText = "Cloud Synced";
     } else {
         dot.className = "w-2 h-2 rounded-full bg-red-500";
-        text.innerText = "Offline Mode";
+        text.innerText = "Offline";
     }
 }
 
@@ -181,10 +179,8 @@ function init() {
         sel.appendChild(opt);
     });
     renderList();
-    loadCloudData(); // 启动时拉取云端
+    loadCloudData();
 }
-
-function syncSession() { renderList(); }
 
 function renderList() {
     const s = SCHEDULE[document.getElementById('sessionSelector').value];
@@ -195,14 +191,15 @@ function renderList() {
         if(!records[std.n]) records[std.n] = { daily: {}, best: {} };
         const isHadir = records[std.n].daily[s.d]?.attend || false;
         const card = document.createElement('div');
-        card.className = "bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200 transition-all";
+        card.className = "bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200";
         let inputs = '';
         s.a.filter(ev => std.events.includes(ev)).forEach(ev => {
             const val = records[std.n].daily[s.d]?.[ev] || "";
             const target = (GOALS[std.t] || GOALS["TAHUN 4"])[ev];
             const ok = val !== "" && (ev === 'run' ? val <= target : val >= target);
             inputs += `<div class="mt-4"><p class="text-[10px] font-black text-slate-400 uppercase">${ACARA_LABELS[ev]}</p>
-                <input type="number" step="0.01" value="${val}" oninput="updateData('${std.n}','${s.d}','${ev}',this.value)" 
+                <input type="number" step="0.01" inputmode="decimal" value="${val}" 
+                oninput="updateData('${std.n}','${s.d}','${ev}',this.value, event)" 
                 class="w-full rounded-2xl p-4 text-sm font-black outline-none border ${val===''?'bg-slate-50':(ok?'achieved':'pending')}" placeholder="0.00"></div>`;
         });
         card.innerHTML = `<div class="flex justify-between items-start border-b pb-4"><div><h3 class="font-black text-slate-900 text-sm uppercase">${std.n}</h3><p class="text-[9px] text-indigo-500 font-bold">${std.t}</p></div>
@@ -211,128 +208,78 @@ function renderList() {
     });
 }
 
-// 延迟保存，防止输入太快导致云端拥堵 (Debounce)
-let saveTimer;
-function updateData(n, d, ev, v) {
+function updateData(n, d, ev, v, event) {
+    if (v.endsWith('.')) return; 
+    const numValue = v === "" ? "" : parseFloat(v);
+    
     if(!records[n].daily[d]) records[n].daily[d] = { attend: true };
-    records[n].daily[d][ev] = v === "" ? "" : parseFloat(v);
-    let all = Object.values(records[n].daily).map(day => day[ev]).filter(val => val !== undefined && val !== "");
+    records[n].daily[d][ev] = numValue;
+    
+    let all = Object.values(records[n].daily).map(day => day[ev]).filter(val => val !== undefined && val !== "" && !isNaN(val));
     if(all.length > 0) records[n].best[ev] = (ev === 'run' ? Math.min(...all) : Math.max(...all));
     
+    // UI即时反馈颜色
+    const inputField = event.target;
+    const target = (GOALS[STUDENTS.find(s=>s.n===n).t] || GOALS["TAHUN 4"])[ev];
+    const ok = numValue !== "" && (ev === 'run' ? numValue <= target : numValue >= target);
+    inputField.classList.remove('achieved', 'pending', 'bg-slate-50');
+    inputField.classList.add(numValue === '' ? 'bg-slate-50' : (ok ? 'achieved' : 'pending'));
+
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(saveToCloud, 2000); // 停止输入2秒后上传
-    renderList();
+    updateSyncUI('saving_local');
+    saveTimer = setTimeout(saveToCloud, 3000); 
 }
 
 function markAttend(n, d) {
     if(!records[n].daily[d]) records[n].daily[d] = { attend: false };
     records[n].daily[d].attend = !records[n].daily[d].attend;
-    saveToCloud(); 
-    renderList();
+    saveToCloud(); renderList();
 }
 
-// --- Dashboard & Excel 逻辑 (与上一版本保持一致) ---
 function toggleDashboard() {
     const m = document.getElementById('dashboardModal');
     m.classList.toggle('hidden'); if(!m.classList.contains('hidden')) refreshDashboard();
 }
+
 function switchTab(t) { 
     currentTab = t; 
-    // 更新按钮样式
-    document.querySelectorAll('.tab-btn').forEach(b => {
-        b.classList.remove('active', 'text-indigo-950');
-        b.classList.add('text-slate-400');
-    });
-    
-    if(t === 'attendance') {
-        document.getElementById('tab-att').classList.add('active', 'text-indigo-950');
-    } else {
-        document.getElementById('tab-perf').classList.add('active', 'text-indigo-950');
-    }
-    
-    refreshDashboard(); // 重新渲染内容
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(t === 'attendance' ? 'tab-att' : 'tab-perf').classList.add('active');
+    refreshDashboard(); 
 }
+
 function refreshDashboard() {
     const content = document.getElementById('dashboardContent');
-    if (!content) return;
-
     if (currentTab === 'attendance') {
-        // 出席表逻辑
         let rows = STUDENTS.map(s => {
             let cells = SCHEDULE.map(day => {
-                const hasProject = day.a.some(a => s.events.includes(a));
-                if (!hasProject) return `<td class="p-2 text-center text-slate-200">-</td>`;
-                const hadir = records[s.n]?.daily?.[day.d]?.attend;
-                return `<td class="p-2 text-center border-x text-sm">${hadir ? '✅' : '❌'}</td>`;
+                if(!day.a.some(a => s.events.includes(a))) return `<td class="p-2 text-center text-slate-200">-</td>`;
+                return `<td class="p-2 text-center border-x">${records[s.n]?.daily?.[day.d]?.attend ? '✅' : '❌'}</td>`;
             }).join('');
-            return `<tr class="border-b"><td class="p-3 font-black text-[11px] uppercase sticky left-0 bg-white z-10 shadow-sm">${s.n}</td>${cells}</tr>`;
+            return `<tr class="border-b text-xs"><td class="p-3 font-black uppercase sticky left-0 bg-white shadow-sm">${s.n}</td>${cells}</tr>`;
         }).join('');
-        
-        content.innerHTML = `
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead class="bg-slate-100">
-                        <tr>
-                            <th class="p-3 text-[10px] sticky left-0 bg-slate-100 z-20">Nama Atlet</th>
-                            ${SCHEDULE.map(d => `<th class="p-2 text-[8px] text-center border-x uppercase">${d.d.split(' ')[0]}</th>`).join('')}
-                        </tr>
-                    </thead>
-                    <tbody>${rows}</tbody>
-                </table>
-            </div>`;
+        content.innerHTML = `<div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead><tr class="bg-slate-100 text-[10px]"><th class="p-3 sticky left-0 bg-slate-100">Nama</th>${SCHEDULE.map(d=>`<th class="p-2 text-center border-x">${d.d.split(' ')[0]}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
     } else {
-        // 进度表 (Prestasi) 逻辑
         let rows = STUDENTS.map(s => {
             let perfs = s.events.map(ev => {
-                const b = records[s.n]?.best?.[ev] || 0;
-                const g = (GOALS[s.t] || GOALS["TAHUN 4"])[ev]; // 获取 Goal
-                const isSpeed = ev === 'run';
-                const ok = b > 0 && (isSpeed ? b <= g : b >= g);
-                const diff = b > 0 ? (b - g).toFixed(2) : '--';
-                const progress = b > 0 ? (isSpeed ? Math.min(100, (g / b) * 100) : Math.min(100, (b / g) * 100)) : 0;
-
-                return `
-                <div class="mb-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                    <div class="flex justify-between text-[10px] font-black uppercase mb-1">
-                        <span class="text-indigo-600">${ACARA_LABELS[ev]}</span>
-                        <span class="${ok ? 'text-green-600' : 'text-red-500'}">Gap: ${diff}</span>
-                    </div>
-                    <div class="progress-bar mt-1"><div class="progress-fill" style="width: ${progress}%"></div></div>
-                    <div class="flex justify-between text-[9px] mt-1 font-bold text-slate-400">
-                        <span>BEST: ${b || 'N/A'}</span><span>GOAL: ${g}</span>
-                    </div>
-                </div>`;
+                const b = records[s.n]?.best?.[ev] || 0, g = (GOALS[s.t] || GOALS["TAHUN 4"])[ev], ok = b>0 && (ev==='run'?b<=g:b>=g);
+                return `<div class="mb-3 bg-slate-50 p-3 rounded-xl border"><div class="flex justify-between text-[10px] font-black uppercase"><span>${ACARA_LABELS[ev]}</span><span class="${ok?'text-green-600':'text-red-500'}">Gap: ${b>0?(b-g).toFixed(2):'--'}</span></div><div class="progress-bar mt-1"><div class="progress-fill" style="width: ${b>0?(ev==='run'?Math.min(100,(g/b)*100):Math.min(100,(b/g)*100)):0}%"></div></div><div class="flex justify-between text-[8px] mt-1 opacity-50 font-bold"><span>BEST: ${b||'--'}</span><span>GOAL: ${g}</span></div></div>`;
             }).join('');
-            return `<tr class="border-b"><td class="p-3 font-black text-xs w-1/3">${s.n}<p class="text-[9px] text-blue-500">${s.t}</p></td><td class="p-3 w-2/3">${perfs}</td></tr>`;
+            return `<tr class="border-b"><td class="p-3 font-black text-xs">${s.n}<p class="text-[9px] text-blue-500">${s.t}</p></td><td class="p-3">${perfs}</td></tr>`;
         }).join('');
-
-        content.innerHTML = `
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead class="text-slate-400 text-[10px] font-black uppercase tracking-widest border-b">
-                        <tr><th class="p-3">Atlet</th><th class="p-3">Analisis & Prestasi</th></tr>
-                    </thead>
-                    <tbody>${rows}</tbody>
-                </table>
-            </div>`;
+        content.innerHTML = `<table class="w-full text-left"><thead><tr class="text-[10px] uppercase text-slate-400"><th>Atlet</th><th>Analisis</th></tr></thead><tbody>${rows}</tbody></table>`;
     }
 }
 
 function exportToExcel() {
     const summaryData = STUDENTS.map(s => {
         let row = { "NAMA ATLET": s.n, "TAHUN": s.t };
-        s.events.forEach(ev => {
-            row[`${ACARA_LABELS[ev]} (BEST)`] = records[s.n]?.best[ev] || "-";
-            row[`${ACARA_LABELS[ev]} (GOAL)`] = (GOALS[s.t] || GOALS["TAHUN 4"])[ev];
-        });
+        s.events.forEach(ev => { row[`${ACARA_LABELS[ev]} (BEST)`] = records[s.n]?.best?.[ev] || "-"; row[`${ACARA_LABELS[ev]} (GOAL)`] = (GOALS[s.t] || GOALS["TAHUN 4"])[ev]; });
         return row;
     });
     const attendanceData = STUDENTS.map(s => {
         let row = { "NAMA ATLET": s.n };
-        SCHEDULE.forEach(day => {
-            if(!day.a.some(a => s.events.includes(a))) row[day.d] = "-";
-            else row[day.d] = records[s.n]?.daily[day.d]?.attend ? "HADIR" : "TIDAK";
-        });
+        SCHEDULE.forEach(day => { row[day.d] = !day.a.some(a => s.events.includes(a)) ? "-" : (records[s.n]?.daily?.[day.d]?.attend ? "HADIR" : "TIDAK"); });
         return row;
     });
     const wb = XLSX.utils.book_new();
@@ -352,22 +299,14 @@ function showDistribution() {
         list.forEach(std => {
             let active = s.a.filter(ev => std.events.includes(ev));
             if (std.events.includes(acaraKey)) {
-                if (active.length > 1) { 
-                    if (active[0] === acaraKey) s1.push(std.n); else s2.push(std.n); 
-                }
+                if (active.length > 1) { if (active[0] === acaraKey) s1.push(std.n); else s2.push(std.n); }
                 else sf.push(std.n);
             }
         });
-        const formatList = (names) => {
-            if (names.length === 0) return '<div class="text-slate-300 italic">- Tiada Atlet -</div>';
-            return names.map((n, i) => `<div class="flex items-center gap-2 py-1 border-b border-white/50 last:border-0"><span class="w-5 h-5 flex items-center justify-center bg-white/50 rounded text-[9px] font-black text-blue-800">${i+1}</span><span class="truncate">${n}</span></div>`).join('');
-        };
+        const formatList = (names) => names.length === 0 ? '<div class="text-slate-300 italic">-</div>' : names.map((n, i) => `<div class="flex items-center gap-2 py-1 border-b border-white/50 last:border-0"><span class="w-5 h-5 flex items-center justify-center bg-white/50 rounded text-[9px] font-black text-blue-800">${i+1}</span><span class="truncate">${n}</span></div>`).join('');
         const box = document.createElement('div');
         box.className = "bg-white rounded-3xl p-6 shadow-sm border-t-8 border-blue-500 flex flex-col gap-4";
-        box.innerHTML = `<div class="border-b pb-2"><h4 class="font-black text-blue-900 text-lg uppercase">${ACARA_LABELS[acaraKey]}</h4></div>
-            <div class="space-y-4"><div class="bg-blue-50/80 p-4 rounded-2xl"><p class="text-[10px] font-black text-blue-600 mb-2 uppercase border-b border-blue-200 pb-1">Sesi 1</p><div class="text-[11px] font-bold text-slate-700 space-y-1">${formatList(s1)}</div></div>
-            <div class="bg-indigo-50/80 p-4 rounded-2xl"><p class="text-[10px] font-black text-indigo-600 mb-2 uppercase border-b border-indigo-200 pb-1">Sesi 2</p><div class="text-[11px] font-bold text-slate-700 space-y-1">${formatList(s2)}</div></div>
-            <div class="bg-slate-100/80 p-4 rounded-2xl"><p class="text-[10px] font-black text-slate-500 mb-2 uppercase border-b border-slate-300 pb-1">Sesi Penuh</p><div class="text-[11px] font-bold text-slate-700 space-y-1">${formatList(sf)}</div></div></div>`;
+        box.innerHTML = `<h4 class="font-black text-blue-900 text-lg uppercase">${ACARA_LABELS[acaraKey]}</h4><div class="space-y-4"><div class="bg-blue-50/80 p-4 rounded-2xl"><p class="text-[10px] font-black text-blue-600 mb-2 border-b border-blue-200 pb-1 uppercase">Sesi 1</p><div class="text-[11px] font-bold text-slate-700 space-y-1">${formatList(s1)}</div></div><div class="bg-indigo-50/80 p-4 rounded-2xl"><p class="text-[10px] font-black text-indigo-600 mb-2 border-b border-indigo-200 pb-1 uppercase">Sesi 2</p><div class="text-[11px] font-bold text-slate-700 space-y-1">${formatList(s2)}</div></div><div class="bg-slate-100/80 p-4 rounded-2xl"><p class="text-[10px] font-black text-slate-500 mb-2 border-b border-slate-300 pb-1 uppercase">Sesi Penuh</p><div class="text-[11px] font-bold text-slate-700 space-y-1">${formatList(sf)}</div></div></div>`;
         content.appendChild(box);
     });
 }
