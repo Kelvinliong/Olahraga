@@ -75,7 +75,7 @@
 // ==================== 1. 配置云端 URL ====================
 const CLOUD_URL = 'https://script.google.com/macros/s/AKfycbw2UHJYkxgWk01M6P3GDjlZjH3cvc6vuTeS_lntdUxWun3kdYEbAV3D8yrLVJ2hU99l/exec'; 
 
-// ==================== 2. 基础数据 (已加入初始 Best 成绩) ====================
+// ==================== 2. 基础数据 ====================
 const ACARA_LABELS = { run: "LUMBA LARI", high: "LOMPAT TINGGI", long: "LOMPAT JAUH", shot: "LONTAR PELURU" };
 const SCHEDULE = [
     { d: "24/2/26 Selasa", m: "2-4pm", a: ["high", "long"] },
@@ -95,7 +95,6 @@ const SCHEDULE = [
     { d: "1/4/26 Rabu", m: "2-4pm", a: ["high", "long", "shot"] }
 ];
 
-// 初始化名单，包含您提供的图片中的 Best 数据
 const STUDENTS = [
     { n: "AIDEN LEE JUN YING", t: "TAHUN 6", events: ["long"], initBest: { long: 3.30 } },
     { n: "ANGELLYNE TIJAN LAH", t: "TAHUN 6", events: ["run", "high"], initBest: { run: 24, high: 0.95 } },
@@ -128,14 +127,20 @@ let records = JSON.parse(localStorage.getItem('keetee_sports_v2')) || {};
 let currentTab = 'attendance';
 let saveTimer;
 
-// 如果 records 是空的，则使用 initBest 初始化记录
-STUDENTS.forEach(s => {
-    if (!records[s.n]) {
-        records[s.n] = { daily: {}, best: s.initBest || {} };
-    } else if (!records[s.n].best || Object.keys(records[s.n].best).length === 0) {
-        records[s.n].best = s.initBest || {};
-    }
-});
+// 重要：强制合并逻辑，确保 initBest 能进入 records
+function mergeInitialData() {
+    STUDENTS.forEach(s => {
+        if (!records[s.n]) records[s.n] = { daily: {}, best: {} };
+        if (!records[s.n].best) records[s.n].best = {};
+        
+        // 遍历初始成绩，如果当前 records 里没有该项成绩，则补上
+        for (let key in s.initBest) {
+            if (records[s.n].best[key] === undefined || records[s.n].best[key] === 0) {
+                records[s.n].best[key] = s.initBest[key];
+            }
+        }
+    });
+}
 
 window.onscroll = function() {
     const header = document.getElementById("mainHeader");
@@ -153,6 +158,7 @@ async function loadCloudData() {
         const cloudData = await response.json();
         if (Object.keys(cloudData).length > 0) {
             records = cloudData;
+            mergeInitialData(); // 云端下载后也要合并
             localStorage.setItem('keetee_sports_v2', JSON.stringify(records));
             renderList();
             updateSyncUI('success');
@@ -192,6 +198,7 @@ function updateSyncUI(status) {
 }
 
 function init() {
+    mergeInitialData(); // 启动时合并
     const sel = document.getElementById('sessionSelector');
     SCHEDULE.forEach((s, i) => {
         let opt = document.createElement('option');
@@ -235,7 +242,7 @@ function updateData(n, d, ev, v, event) {
     if(!records[n].daily[d]) records[n].daily[d] = { attend: true };
     records[n].daily[d][ev] = numValue;
     
-    // 计算新的 Best
+    // 重新计算该项目的 Best
     let dayValues = Object.values(records[n].daily).map(day => day[ev]).filter(val => val !== undefined && val !== "" && !isNaN(val));
     let initialBest = STUDENTS.find(s => s.n === n).initBest[ev];
     if (initialBest !== undefined) dayValues.push(initialBest);
