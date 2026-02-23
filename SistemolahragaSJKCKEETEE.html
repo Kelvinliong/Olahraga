@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Olahraga SJKC KEE TEE (Cloud Sync)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .achieved { background-color: #dcfce7; border: 2px solid #22c55e; color: #15803d; font-weight: bold; }
+        .pending { background-color: #fef2f2; border: 1px solid #fca5a5; }
+        .btn-hadir { background-color: #10b981 !important; color: white !important; font-weight: 900; }
+        .progress-bar { height: 8px; border-radius: 4px; background: #e2e8f0; overflow: hidden; }
+        .progress-fill { height: 100%; background: #3b82f6; transition: width 0.5s ease; }
+        .tab-btn.active { border-bottom: 4px solid #f59e0b; color: #f59e0b; }
+        /* 云端加载动画 */
+        #syncLoader { transition: all 0.3s; }
+        .syncing { color: #f59e0b; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col w-full overflow-x-hidden">
+
+<div class="bg-indigo-950 text-white p-6 sticky top-0 z-50 shadow-xl w-full border-b-4 border-yellow-500">
+    <div class="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+        <div>
+            <div class="flex items-center gap-2">
+                <h1 class="text-2xl md:text-3xl font-black tracking-tight text-yellow-400">启智学校田径记录系统</h1>
+                <div id="syncStatus" class="flex items-center gap-1 bg-white/10 px-2 py-1 rounded text-[10px] font-bold">
+                    <span id="syncDot" class="w-2 h-2 rounded-full bg-green-500"></span>
+                    <span id="syncText">云端已同步</span>
+                </div>
+            </div>
+            <p class="text-xs md:text-sm font-bold opacity-90 uppercase tracking-[0.2em]">OLAHRAGA SJKC KEE TEE</p>
+        </div>
+        <div class="flex flex-wrap justify-center gap-3">
+            <button onclick="showDistribution()" class="bg-blue-600 text-white px-5 py-3 rounded-2xl text-xs font-black shadow-lg">📋 PENGAGIHAN</button>
+            <button onclick="toggleDashboard()" class="bg-yellow-500 text-indigo-950 px-5 py-3 rounded-2xl text-xs font-black shadow-lg">📊 DATA</button>
+            <button onclick="exportToExcel()" class="bg-emerald-600 text-white px-5 py-3 rounded-2xl text-xs font-black shadow-lg">📥 EXCEL</button>
+        </div>
+    </div>
+    <div class="max-w-[1600px] mx-auto mt-6">
+        <select id="sessionSelector" onchange="syncSession()" class="w-full bg-indigo-900 border border-indigo-700 rounded-2xl p-4 text-sm text-white font-bold outline-none cursor-pointer"></select>
+    </div>
+</div>
+
+<main class="flex-1 w-full max-w-[1600px] mx-auto p-6">
+    <div id="studentList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6"></div>
+</main>
+
+<div id="dashboardModal" class="fixed inset-0 bg-slate-900/95 z-[300] hidden backdrop-blur-xl p-4 overflow-y-auto">
+    <div class="bg-white rounded-[3rem] w-full max-w-7xl mx-auto shadow-2xl overflow-hidden min-h-[80vh]">
+        <div class="flex border-b bg-slate-50 px-8 pt-6 gap-8 sticky top-0 z-10">
+            <button onclick="switchTab('attendance')" id="tab-att" class="tab-btn active pb-4 text-sm font-black uppercase text-slate-400">Kehadiran (出席)</button>
+            <button onclick="switchTab('performance')" id="tab-perf" class="tab-btn pb-4 text-sm font-black uppercase text-slate-400">Prestasi (进度)</button>
+            <button onclick="toggleDashboard()" class="ml-auto text-slate-400 hover:text-red-500 font-bold text-2xl mb-4">&times;</button>
+        </div>
+        <div id="dashboardContent" class="p-8"></div>
+    </div>
+</div>
+
+<div id="distModal" class="fixed inset-0 bg-slate-900/90 z-[200] hidden backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-[3rem] w-full max-w-5xl shadow-2xl overflow-hidden">
+        <div class="p-6 bg-blue-600 text-white flex justify-between items-center font-black uppercase text-sm tracking-widest">
+            <span>Senarai Pengagihan Atlet</span><button onclick="closeDist()" class="text-3xl">&times;</button>
+        </div>
+        <div id="distContent" class="p-8 max-h-[75vh] overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50"></div>
+    </div>
+</div>
+
+<script>
+// ==================== 云端配置 ====================
+const CLOUD_URL = 'https://script.google.com/macros/s/AKfycbw2UHJYkxgWk01M6P3GDjlZjH3cvc6vuTeS_lntdUxWun3kdYEbAV3D8yrLVJ2hU99l/exec'; // ⚠️ 请填入 Google Apps Script 的部署网址
+// =================================================
+
+const ACARA_LABELS = { run: "LUMBA LARI", high: "LOMPAT TINGGI", long: "LOMPAT JAUH", shot: "LONTAR PELURU" };
+const SCHEDULE = [
+    { d: "24/2/26 Selasa", m: "2-4pm", a: ["high", "long"] },
+    { d: "25/2/26 Rabu", m: "2-4pm", a: ["run", "shot"] },
+    { d: "26/2/26 Khamis", m: "2-4pm", a: ["high", "long"] },
+    { d: "2/3/26 Isnin", m: "2-4pm", a: ["run", "shot"] },
+    { d: "4/3/26 Rabu", m: "4-5pm", a: ["run", "shot"] },
+    { d: "5/3/26 Khamis", m: "4-5pm", a: ["high", "long"] },
+    { d: "9/3/26 Isnin", m: "2-4pm", a: ["run", "shot"] },
+    { d: "10/3/26 Selasa", m: "2-4pm", a: ["high", "long"] },
+    { d: "11/3/26 Rabu", m: "4-5pm", a: ["run", "shot"], n: "🏆 PEMILIHAN AKHIR" },
+    { d: "12/3/26 Khamis", m: "4-5pm", a: ["high", "long"], n: "🏆 PEMILIHAN AKHIR" },
+    { d: "16/3/26 Isnin", m: "2-4pm", a: ["run", "shot"] },
+    { d: "17/3/26 Selasa", m: "2-4pm", a: ["high", "long"] },
+    { d: "30/3/26 Isnin", m: "2-4pm", a: ["run", "shot"] },
+    { d: "31/3/26 Selasa", m: "2-4pm", a: ["high", "long", "shot"] },
+    { d: "1/4/26 Rabu", m: "2-4pm", a: ["high", "long", "shot"] }
+];
+
+const STUDENTS = [
+    { n: "AIDEN LEE JUN YING", t: "TAHUN 6", events: ["long"] },
+    { n: "ANGELLYNE TIJAN LAH", t: "TAHUN 6", events: ["run", "high"] },
+    { n: "AURELIUS PHILEMON WAN AUGUST", t: "TAHUN 6", events: ["high", "long", "shot"] },
+    { n: "AYDEN JOSEPH SUSILAN SADASIVAN", t: "TAHUN 6", events: ["high", "long"] },
+    { n: "FANILY TIONG HUNG KIEW", t: "TAHUN 6", events: ["high"] },
+    { n: "LIEW JIA XUAN", t: "TAHUN 6", events: ["long"] },
+    { n: "MARK ARTHUR SAMSON", t: "TAHUN 6", events: ["high"] },
+    { n: "NGAN MEI TING", t: "TAHUN 6", events: ["run", "high", "long"] },
+    { n: "SUZANNE CHUPPU AK JUA", t: "TAHUN 6", events: ["long"] },
+    { n: "GOH WEN WEN", t: "TAHUN 5", events: ["run"] },
+    { n: "GWENDOLYNE ANNASTASHA", t: "TAHUN 5", events: ["run", "high", "long"] },
+    { n: "OLWENTYO SIM XIAO PING", t: "TAHUN 5", events: ["long"] },
+    { n: "RACHEL BOON CHAI", t: "TAHUN 5", events: ["run", "high", "long"] },
+    { n: "ADAM MIKHAIL SAMSON", t: "TAHUN 4", events: ["shot"] },
+    { n: "ANTHONY AJANG LAH", t: "TAHUN 4", events: ["run", "long"] },
+    { n: "CADENCE BULAN OLYMPIA", t: "TAHUN 4", events: ["run", "high", "long"] },
+    { n: "CASSIE SIM CHEN SHIEN", t: "TAHUN 4", events: ["run", "long"] },
+    { n: "GRAYSON ANAK ELIAM", t: "TAHUN 4", events: ["shot"] },
+    { n: "TIARA EMILEESYHA BINTI ABDULLAH", t: "TAHUN 4", events: ["run"] },
+    { n: "ADY LYTHU JIFLI", t: "TAHUN 3", events: ["high"] },
+    { n: "GOH KEE JUN", t: "TAHUN 3", events: ["high"] },
+    { n: "SCARLETT JACKSON CASSIDY", t: "TAHUN 3", events: ["long"] },
+    { n: "YUVENIA CHUMANG", t: "TAHUN 3", events: ["shot"] }
+];
+
+const GOALS = { "TAHUN 6": { run: 23, high: 1.20, long: 3.80, shot: 8.65 }, "TAHUN 5": { run: 23, high: 1.18, long: 3.60, shot: 7.00 }, "TAHUN 4": { run: 24, high: 1.12, long: 3.50, shot: 5.50 }, "TAHUN 3": { run: 24, high: 1.12, long: 3.50, shot: 5.50 } };
+
+let records = JSON.parse(localStorage.getItem('keetee_sports_v2')) || {};
+let currentTab = 'attendance';
+
+// 云端同步逻辑
+async function loadCloudData() {
+    updateSyncUI('loading');
+    try {
+        const response = await fetch(CLOUD_URL);
+        const cloudData = await response.json();
+        if (Object.keys(cloudData).length > 0) {
+            records = cloudData;
+            localStorage.setItem('keetee_sports_v2', JSON.stringify(records));
+            renderList();
+            updateSyncUI('success');
+        }
+    } catch (e) {
+        console.error("Cloud error:", e);
+        updateSyncUI('error');
+    }
+}
+
+async function saveToCloud() {
+    updateSyncUI('saving');
+    localStorage.setItem('keetee_sports_v2', JSON.stringify(records));
+    try {
+        await fetch(CLOUD_URL, {
+            method: 'POST',
+            mode: 'no-cors', // 解决跨域限制
+            body: JSON.stringify(records)
+        });
+        updateSyncUI('success');
+    } catch (e) {
+        updateSyncUI('error');
+    }
+}
+
+function updateSyncUI(status) {
+    const dot = document.getElementById('syncDot');
+    const text = document.getElementById('syncText');
+    if (status === 'loading' || status === 'saving') {
+        dot.className = "w-2 h-2 rounded-full bg-yellow-500 animate-pulse";
+        text.innerText = "Synchronizing...";
+    } else if (status === 'success') {
+        dot.className = "w-2 h-2 rounded-full bg-green-500";
+        text.innerText = "Cloud Synced";
+    } else {
+        dot.className = "w-2 h-2 rounded-full bg-red-500";
+        text.innerText = "Offline Mode";
+    }
+}
+
+function init() {
+    const sel = document.getElementById('sessionSelector');
+    SCHEDULE.forEach((s, i) => {
+        let opt = document.createElement('option');
+        opt.value = i; opt.innerText = `${s.d} (${s.m})`;
+        sel.appendChild(opt);
+    });
+    renderList();
+    loadCloudData(); // 启动时拉取云端
+}
+
+function syncSession() { renderList(); }
+
+function renderList() {
+    const s = SCHEDULE[document.getElementById('sessionSelector').value];
+    const container = document.getElementById('studentList');
+    container.innerHTML = '';
+    const list = STUDENTS.filter(std => std.events.some(e => s.a.includes(e)));
+    list.forEach(std => {
+        if(!records[std.n]) records[std.n] = { daily: {}, best: {} };
+        const isHadir = records[std.n].daily[s.d]?.attend || false;
+        const card = document.createElement('div');
+        card.className = "bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200 transition-all";
+        let inputs = '';
+        s.a.filter(ev => std.events.includes(ev)).forEach(ev => {
+            const val = records[std.n].daily[s.d]?.[ev] || "";
+            const target = (GOALS[std.t] || GOALS["TAHUN 4"])[ev];
+            const ok = val !== "" && (ev === 'run' ? val <= target : val >= target);
+            inputs += `<div class="mt-4"><p class="text-[10px] font-black text-slate-400 uppercase">${ACARA_LABELS[ev]}</p>
+                <input type="number" step="0.01" value="${val}" oninput="updateData('${std.n}','${s.d}','${ev}',this.value)" 
+                class="w-full rounded-2xl p-4 text-sm font-black outline-none border ${val===''?'bg-slate-50':(ok?'achieved':'pending')}" placeholder="0.00"></div>`;
+        });
+        card.innerHTML = `<div class="flex justify-between items-start border-b pb-4"><div><h3 class="font-black text-slate-900 text-sm uppercase">${std.n}</h3><p class="text-[9px] text-indigo-500 font-bold">${std.t}</p></div>
+            <button onclick="markAttend('${std.n}','${s.d}')" class="text-[9px] border px-3 py-2 rounded-xl font-black uppercase ${isHadir?'btn-hadir':'bg-white text-slate-400'}">${isHadir?'Hadir':'Tidak'}</button></div><div>${inputs}</div>`;
+        container.appendChild(card);
+    });
+}
+
+// 延迟保存，防止输入太快导致云端拥堵 (Debounce)
+let saveTimer;
+function updateData(n, d, ev, v) {
+    if(!records[n].daily[d]) records[n].daily[d] = { attend: true };
+    records[n].daily[d][ev] = v === "" ? "" : parseFloat(v);
+    let all = Object.values(records[n].daily).map(day => day[ev]).filter(val => val !== undefined && val !== "");
+    if(all.length > 0) records[n].best[ev] = (ev === 'run' ? Math.min(...all) : Math.max(...all));
+    
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveToCloud, 2000); // 停止输入2秒后上传
+    renderList();
+}
+
+function markAttend(n, d) {
+    if(!records[n].daily[d]) records[n].daily[d] = { attend: false };
+    records[n].daily[d].attend = !records[n].daily[d].attend;
+    saveToCloud(); 
+    renderList();
+}
+
+// --- Dashboard & Excel 逻辑 (与上一版本保持一致) ---
+function toggleDashboard() {
+    const m = document.getElementById('dashboardModal');
+    m.classList.toggle('hidden'); if(!m.classList.contains('hidden')) refreshDashboard();
+}
+function switchTab(t) { 
+    currentTab = t; 
+    // 更新按钮样式
+    document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('active', 'text-indigo-950');
+        b.classList.add('text-slate-400');
+    });
+    
+    if(t === 'attendance') {
+        document.getElementById('tab-att').classList.add('active', 'text-indigo-950');
+    } else {
+        document.getElementById('tab-perf').classList.add('active', 'text-indigo-950');
+    }
+    
+    refreshDashboard(); // 重新渲染内容
+}
+function refreshDashboard() {
+    const content = document.getElementById('dashboardContent');
+    if (!content) return;
+
+    if (currentTab === 'attendance') {
+        // 出席表逻辑
+        let rows = STUDENTS.map(s => {
+            let cells = SCHEDULE.map(day => {
+                const hasProject = day.a.some(a => s.events.includes(a));
+                if (!hasProject) return `<td class="p-2 text-center text-slate-200">-</td>`;
+                const hadir = records[s.n]?.daily?.[day.d]?.attend;
+                return `<td class="p-2 text-center border-x text-sm">${hadir ? '✅' : '❌'}</td>`;
+            }).join('');
+            return `<tr class="border-b"><td class="p-3 font-black text-[11px] uppercase sticky left-0 bg-white z-10 shadow-sm">${s.n}</td>${cells}</tr>`;
+        }).join('');
+        
+        content.innerHTML = `
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-100">
+                        <tr>
+                            <th class="p-3 text-[10px] sticky left-0 bg-slate-100 z-20">Nama Atlet</th>
+                            ${SCHEDULE.map(d => `<th class="p-2 text-[8px] text-center border-x uppercase">${d.d.split(' ')[0]}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>`;
+    } else {
+        // 进度表 (Prestasi) 逻辑
+        let rows = STUDENTS.map(s => {
+            let perfs = s.events.map(ev => {
+                const b = records[s.n]?.best?.[ev] || 0;
+                const g = (GOALS[s.t] || GOALS["TAHUN 4"])[ev]; // 获取 Goal
+                const isSpeed = ev === 'run';
+                const ok = b > 0 && (isSpeed ? b <= g : b >= g);
+                const diff = b > 0 ? (b - g).toFixed(2) : '--';
+                const progress = b > 0 ? (isSpeed ? Math.min(100, (g / b) * 100) : Math.min(100, (b / g) * 100)) : 0;
+
+                return `
+                <div class="mb-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <div class="flex justify-between text-[10px] font-black uppercase mb-1">
+                        <span class="text-indigo-600">${ACARA_LABELS[ev]}</span>
+                        <span class="${ok ? 'text-green-600' : 'text-red-500'}">Gap: ${diff}</span>
+                    </div>
+                    <div class="progress-bar mt-1"><div class="progress-fill" style="width: ${progress}%"></div></div>
+                    <div class="flex justify-between text-[9px] mt-1 font-bold text-slate-400">
+                        <span>BEST: ${b || 'N/A'}</span><span>GOAL: ${g}</span>
+                    </div>
+                </div>`;
+            }).join('');
+            return `<tr class="border-b"><td class="p-3 font-black text-xs w-1/3">${s.n}<p class="text-[9px] text-blue-500">${s.t}</p></td><td class="p-3 w-2/3">${perfs}</td></tr>`;
+        }).join('');
+
+        content.innerHTML = `
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead class="text-slate-400 text-[10px] font-black uppercase tracking-widest border-b">
+                        <tr><th class="p-3">Atlet</th><th class="p-3">Analisis & Prestasi</th></tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>`;
+    }
+}
+
+function exportToExcel() {
+    const summaryData = STUDENTS.map(s => {
+        let row = { "NAMA ATLET": s.n, "TAHUN": s.t };
+        s.events.forEach(ev => {
+            row[`${ACARA_LABELS[ev]} (BEST)`] = records[s.n]?.best[ev] || "-";
+            row[`${ACARA_LABELS[ev]} (GOAL)`] = (GOALS[s.t] || GOALS["TAHUN 4"])[ev];
+        });
+        return row;
+    });
+    const attendanceData = STUDENTS.map(s => {
+        let row = { "NAMA ATLET": s.n };
+        SCHEDULE.forEach(day => {
+            if(!day.a.some(a => s.events.includes(a))) row[day.d] = "-";
+            else row[day.d] = records[s.n]?.daily[day.d]?.attend ? "HADIR" : "TIDAK";
+        });
+        return row;
+    });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryData), "Prestasi");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(attendanceData), "Kehadiran");
+    XLSX.writeFile(wb, "Rekod_Olahraga_SJKC_KEE_TEE.xlsx");
+}
+
+function showDistribution() {
+    const s = SCHEDULE[document.getElementById('sessionSelector').value];
+    const list = STUDENTS.filter(std => std.events.some(e => s.a.includes(e)));
+    const content = document.getElementById('distContent');
+    document.getElementById('distModal').classList.remove('hidden');
+    content.innerHTML = '';
+    s.a.forEach(acaraKey => {
+        let s1 = [], s2 = [], sf = [];
+        list.forEach(std => {
+            let active = s.a.filter(ev => std.events.includes(ev));
+            if (std.events.includes(acaraKey)) {
+                if (active.length > 1) { 
+                    if (active[0] === acaraKey) s1.push(std.n); else s2.push(std.n); 
+                }
+                else sf.push(std.n);
+            }
+        });
+        const formatList = (names) => {
+            if (names.length === 0) return '<div class="text-slate-300 italic">- Tiada Atlet -</div>';
+            return names.map((n, i) => `<div class="flex items-center gap-2 py-1 border-b border-white/50 last:border-0"><span class="w-5 h-5 flex items-center justify-center bg-white/50 rounded text-[9px] font-black text-blue-800">${i+1}</span><span class="truncate">${n}</span></div>`).join('');
+        };
+        const box = document.createElement('div');
+        box.className = "bg-white rounded-3xl p-6 shadow-sm border-t-8 border-blue-500 flex flex-col gap-4";
+        box.innerHTML = `<div class="border-b pb-2"><h4 class="font-black text-blue-900 text-lg uppercase">${ACARA_LABELS[acaraKey]}</h4></div>
+            <div class="space-y-4"><div class="bg-blue-50/80 p-4 rounded-2xl"><p class="text-[10px] font-black text-blue-600 mb-2 uppercase border-b border-blue-200 pb-1">Sesi 1</p><div class="text-[11px] font-bold text-slate-700 space-y-1">${formatList(s1)}</div></div>
+            <div class="bg-indigo-50/80 p-4 rounded-2xl"><p class="text-[10px] font-black text-indigo-600 mb-2 uppercase border-b border-indigo-200 pb-1">Sesi 2</p><div class="text-[11px] font-bold text-slate-700 space-y-1">${formatList(s2)}</div></div>
+            <div class="bg-slate-100/80 p-4 rounded-2xl"><p class="text-[10px] font-black text-slate-500 mb-2 uppercase border-b border-slate-300 pb-1">Sesi Penuh</p><div class="text-[11px] font-bold text-slate-700 space-y-1">${formatList(sf)}</div></div></div>`;
+        content.appendChild(box);
+    });
+}
+function closeDist() { document.getElementById('distModal').classList.add('hidden'); }
+init();
+</script>
+</body>
+</html>
